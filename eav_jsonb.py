@@ -230,11 +230,11 @@ def main():
         print("-" * 90)
         print(f"{'Storage Size (bytes)':<40} | {storage_results[0][1]}         | {storage_results[0][2]}")
         print(f"{'Insert Time (seconds)':<40} | {eav_insert_time:.3f} sec     | {jsonb_insert_time:.3f} sec")
-        print(f"{'Top 1000 (seconds)':<40} | {eav_query_time*1000:.3f} ms     | {jsonb_query_time*1000:.3f} ms")
+        print(f"{'Top 1000 (milliseconds)':<40} | {eav_query_time*1000:.3f} ms     | {jsonb_query_time*1000:.3f} ms")
         print(
             f"{'Count with filters (seconds)':<40} | {eav_height_weight_time:.3f} sec     | {jsonb_height_weight_time:.3f} sec")
-        print(f"{'Find by Non-Existing Name (seconds)':<40} | {eav_find_time*1000:.3f} ms     | {jsonb_find_time*1000:.3f} ms")
-
+        print(f"{'Find by Non-Existing Name (milliseconds)':<40} | {eav_find_time*1000:.3f} ms     | {jsonb_find_time*1000:.3f} ms")
+        
         cursor.close()
         conn.close()
 

@@ -210,6 +210,9 @@ def main():
         # Insert into JSONB model
         _, jsonb_insert_time = measure_time(insert_jsonb, cursor, "Insert into JSONB Table")
 
+        cursor.execute('analyze')
+
+
         # Fetch storage sizes
         storage_results = get_storage(cursor)
 

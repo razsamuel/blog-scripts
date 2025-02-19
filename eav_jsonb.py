@@ -65,7 +65,7 @@ def insert_eav(cursor):
                 ELSE '' 
             END
         FROM generate_series(1, {TEST_SIZE}) AS g(i),
-            (VALUES ('age'), ('height'), ('weight'), ('salary'), ('city'), ('gender'), ('experience')) AS attr(name);
+            (VALUES ('age'), ('height'), ('weight'), ('salary'), ('city'), ('gender'), ('name')) AS attr(name);
     """)
 
 def insert_jsonb(cursor):
@@ -197,7 +197,6 @@ def main():
         conn = psycopg2.connect(**DB_CONFIG)
         conn.autocommit = True
         cursor = conn.cursor()
-
         # Drop tables
         drop_tables(cursor)
 
@@ -212,22 +211,23 @@ def main():
 
         cursor.execute('analyze')
 
-
         # Fetch storage sizes
         storage_results = get_storage(cursor)
 
-        # Query EAV model
-        eav_result, eav_query_time = measure_time(query_eav, cursor, "Query EAV Table")
+        # The for loop is for warming the cache
+        for i in range(0,2):
+            # Query EAV model
+            eav_result, eav_query_time = measure_time(query_eav, cursor, "Query EAV Table")
 
-        # Query JSONB model
-        jsonb_result, jsonb_query_time = measure_time(query_jsonb, cursor, "Query JSONB Table")
+            # Query JSONB model
+            jsonb_result, jsonb_query_time = measure_time(query_jsonb, cursor, "Query JSONB Table")
 
-        # Count people with height between 170-180 OR weight between 70-80
-        eav_height_weight_count, eav_height_weight_time = measure_time(count_eav_height_or_weight_range, cursor, "EAV Height OR Weight Count")
-        jsonb_height_weight_count, jsonb_height_weight_time = measure_time(count_jsonb_height_or_weight_range, cursor, "JSONB Height OR Weight Count")
+            # Count people with height between 170-180 OR weight between 70-80
+            eav_height_weight_count, eav_height_weight_time = measure_time(count_eav_height_or_weight_range, cursor, "EAV Height OR Weight Count")
+            jsonb_height_weight_count, jsonb_height_weight_time = measure_time(count_jsonb_height_or_weight_range, cursor, "JSONB Height OR Weight Count")
 
-        _, eav_find_time = measure_time(find_eav_by_non_specific_non_exist_value, cursor, "Find EAV by non exist value")
-        _, jsonb_find_time = measure_time(find_jsonb_by_non_specific_non_exist_value, cursor, "Find JSONB by non exist value")
+            _, eav_find_time = measure_time(find_eav_by_non_specific_non_exist_value, cursor, "Find EAV by non exist value")
+            _, jsonb_find_time = measure_time(find_jsonb_by_non_specific_non_exist_value, cursor, "Find JSONB by non exist value")
 
         print(f"{'Metric':<40} | {'EAV':<20} | {'JSONB':<20}")
         print("-" * 90)
@@ -237,12 +237,14 @@ def main():
         print(
             f"{'Count with filters (seconds)':<40} | {eav_height_weight_time:.3f} sec     | {jsonb_height_weight_time:.3f} sec")
         print(f"{'Find by Non-Existing Name (milliseconds)':<40} | {eav_find_time*1000:.3f} ms     | {jsonb_find_time*1000:.3f} ms")
-        
+
         cursor.close()
         conn.close()
 
     except Exception as e:
         print(f"Error: {e}")
 
+if __name__ == "__main__":
+    main()
 if __name__ == "__main__":
     main()

@@ -90,9 +90,9 @@ def get_storage(cursor):
     cursor.execute("""
         SELECT
             relname AS table_name,
-            pg_size_pretty(pg_total_relation_size(relid)) AS total_size,
-            pg_size_pretty(pg_relation_size(relid)) AS table_size,
-            pg_size_pretty(pg_indexes_size(relid)) AS index_size
+            (pg_total_relation_size(relid))/1024/1024 AS total_size_mb,
+            (pg_relation_size(relid))/1024/1024 AS table_size_mb,
+            (pg_indexes_size(relid))/1024/1024 AS index_size_mb
         FROM pg_stat_user_tables
         WHERE relname IN ('eav_table', 'jsonb_table');
     """)
@@ -191,6 +191,44 @@ def find_jsonb_by_non_specific_non_exist_value(cursor):
     """)
     return cursor.fetchall()
 
+def sort_and_filter_jsonb(cursor):
+    """ Find entities where height = 175 in JSONB model """
+    cursor.execute("""
+        EXPLAIN (ANALYZE)
+        SELECT *
+        FROM jsonb_table
+        WHERE (attributes ->>'age')::INT = 50
+        ORDER BY (attributes->>'height')::INT, entity_id
+        LIMIT 1000;
+    """)
+    return cursor.fetchall()
+
+def sort_and_filter_eav(cursor):
+    cursor.execute(
+        """
+    EXPLAIN (ANALYZE)
+SELECT e1.entity_id, 
+       e1.value AS height, 
+       e2.value AS weight, 
+       e3.value AS salary, 
+       e4.value AS age, 
+       e5.value AS city, 
+       e6.value AS gender, 
+       e7.value AS name
+FROM eav_table e1
+JOIN eav_table e2 ON e1.entity_id = e2.entity_id AND e2.attribute = 'weight'
+JOIN eav_table e3 ON e1.entity_id = e3.entity_id AND e3.attribute = 'salary'
+JOIN eav_table e4 ON e1.entity_id = e4.entity_id AND e4.attribute = 'age'
+JOIN eav_table e5 ON e1.entity_id = e5.entity_id AND e5.attribute = 'city'
+JOIN eav_table e6 ON e1.entity_id = e6.entity_id AND e6.attribute = 'gender'
+JOIN eav_table e7 ON e1.entity_id = e7.entity_id AND e7.attribute = 'name'
+WHERE e1.attribute = 'height'
+AND e4.attribute = 'age' AND e4.value::INT = 50
+ORDER BY e1.value::INT , entity_id
+LIMIT 1000;
+        """
+    )
+
 def main():
     try:
         # Connect to PostgreSQL
@@ -229,15 +267,22 @@ def main():
             _, eav_find_time = measure_time(find_eav_by_non_specific_non_exist_value, cursor, "Find EAV by non exist value")
             _, jsonb_find_time = measure_time(find_jsonb_by_non_specific_non_exist_value, cursor, "Find JSONB by non exist value")
 
-        print(f"{'Metric':<40} | {'EAV':<20} | {'JSONB':<20}")
-        print("-" * 90)
-        print(f"{'Storage Size (bytes)':<40} | {storage_results[0][1]}         | {storage_results[0][2]}")
-        print(f"{'Insert Time (seconds)':<40} | {eav_insert_time:.3f} sec     | {jsonb_insert_time:.3f} sec")
-        print(f"{'Top 1000 (milliseconds)':<40} | {eav_query_time*1000:.3f} ms     | {jsonb_query_time*1000:.3f} ms")
-        print(
-            f"{'Count with filters (seconds)':<40} | {eav_height_weight_time:.3f} sec     | {jsonb_height_weight_time:.3f} sec")
-        print(f"{'Find by Non-Existing Name (milliseconds)':<40} | {eav_find_time*1000:.3f} ms     | {jsonb_find_time*1000:.3f} ms")
+            _,eav_sort_time = measure_time(sort_and_filter_eav, cursor, "Sort EAV Table")
+            _,jsonb_sort_time = measure_time(sort_and_filter_jsonb, cursor, "Sort JSONB Table")
 
+        print(f"{'Metric':<40} | {'EAV':<15} | {'JSONB':<15}")
+        print("-" * 80)
+        print(f"{'Storage Size (megabytes)':<40} | {storage_results[0][1]:>10.3f} mb | {storage_results[0][2]:>10.3f} mb")
+        print(f"{'Insert Time (seconds)':<40} | {eav_insert_time:>10.3f} se     | {jsonb_insert_time:>10.3f} se")
+
+        print(
+            f"{'Top 1000 (milliseconds)':<40} | {eav_query_time * 1000:>10.3f} ms | {jsonb_query_time * 1000:>10.3f} ms")
+        print(
+            f"{'Count with filters (milliseconds)':<40} | {eav_height_weight_time * 1000:>10.3f} ms | {jsonb_height_weight_time * 1000:>10.3f} ms")
+        print(
+            f"{'Find by Non-Existing Name (milliseconds)':<40} | {eav_find_time * 1000:>10.3f} ms | {jsonb_find_time * 1000:>10.3f} ms")
+        print(
+            f"{'Sorting with filter (milliseconds)':<40} | {eav_sort_time * 1000:>10.3f} ms | {jsonb_sort_time * 1000:>10.3f} ms")
         cursor.close()
         conn.close()
 
